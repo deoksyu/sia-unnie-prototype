@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>시아언니 — 프로토타입</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; height:100%; width:100%; overflow:hidden; position:fixed; inset:0; overscroll-behavior:none; background:#EDE6DD; font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif; }
+  #stage{ min-height:100dvh; display:flex; align-items:center; justify-content:center; padding:24px 0; overscroll-behavior:none; }
+  .phone{ width:390px; height:844px; max-height:92dvh; background:#FFF8F2; border-radius:44px; box-shadow:0 30px 70px rgba(60,40,20,0.28), 0 0 0 10px #1c1a18; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  @media (max-width:430px){ .phone{ width:100vw; height:100dvh; max-height:100dvh; border-radius:0; box-shadow:none; }}
+  .statusbar{ display:flex; justify-content:space-between; align-items:center; padding:14px 26px 4px; font-size:13px; font-weight:600; color:#3a332c; flex-shrink:0; }
+  .dot-row{ display:flex; gap:3px; align-items:flex-end; }
+  .dot-row span{ width:3px; background:#3a332c; border-radius:1px; display:block; }
+  .screen{ flex:1; overflow-y:auto; overflow-x:hidden; -ms-overflow-style:none; scrollbar-width:none; display:flex; flex-direction:column; overscroll-behavior-y:contain; }
+  .screen::-webkit-scrollbar{ display:none; }
+  .navbar{ flex-shrink:0; display:flex; border-top:1px solid #ECE2D6; background:#FFFDFB; padding:8px 6px calc(env(safe-area-inset-bottom,0px) + 8px); }
+  .navitem{ flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0; border-radius:14px; color:#B7AA9B; font-size:11px; font-weight:600; }
+  .navitem.active{ color:#E8734A; }
+  .bubble-sia{ background:#FFF1E8; color:#4A3F35; border-radius:18px 18px 18px 4px; padding:12px 15px; max-width:78%; font-size:14.5px; line-height:1.55; }
+  .bubble-me{ background:#E8734A; color:#fff; border-radius:18px 18px 4px 18px; padding:12px 15px; max-width:78%; font-size:14.5px; line-height:1.55; margin-left:auto; }
+  .chip{ background:#fff; border:1px solid #ECE2D6; color:#7A6C5D; font-size:12.5px; font-weight:600; padding:8px 14px; border-radius:999px; white-space:nowrap; flex-shrink:0; }
+  .fadein{ animation:fadein .35s ease; }
+  @keyframes fadein{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  .card{ background:#fff; border:1px solid #F1E9DE; border-radius:20px; }
+  .stagepill{ font-size:12px; font-weight:700; padding:7px 13px; border-radius:999px; background:#F5EFE6; color:#8A7B6A; white-space:nowrap; flex-shrink:0; }
+  .stagepill.on{ background:#E8734A; color:#fff; }
+  .stagepill.off{ opacity:.4; }
+  .hscroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x; overscroll-behavior-x:contain; cursor:grab; }
+  .hscroll::-webkit-scrollbar{ display:none; }
+  .hscroll.dragging{ cursor:grabbing; }
+  .hscroll.dragging *{ pointer-events:none; }
+  /* 나의 회복지도 매트릭스 — 가로축: 치료 단계(8개 고정 열) / 세로축: 시간(월→주→일, 세로 스크롤) */
+  #mxScroll{ overflow:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; touch-action:pan-x pan-y; overscroll-behavior:contain; }
+  #mxScroll::-webkit-scrollbar{ display:none; }
+  .mx-corner{ position:sticky; top:0; left:0; z-index:4; background:#FFF8F2; flex-shrink:0; }
+  .mx-stagehead{ flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; font-weight:700; color:#8A7B6A; text-align:center; line-height:1.2; padding:2px; box-sizing:border-box; border-bottom:1px solid #F1E9DE; border-left:1px solid #F5EFE6; }
+  .mx-timelabel{ flex-shrink:0; position:sticky; left:0; z-index:2; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; font-weight:800; color:#7A6C5D; background:#FBF5EE; border-bottom:1px solid #F1E9DE; box-sizing:border-box; padding:2px; cursor:pointer; }
+  .mx-timelabel .wd{ font-size:9px; color:#C6B9A9; font-weight:600; }
+  .mx-cell{ flex-shrink:0; border-bottom:1px solid #F5EFE6; border-left:1px solid #F5EFE6; display:flex; align-items:center; justify-content:center; cursor:pointer; box-sizing:border-box; padding:2px; overflow:hidden; }
+  .mx-cell:active{ filter:brightness(0.96); }
+  .mx-badge{ font-size:10px; font-weight:800; padding:3px 6px; border-radius:7px; background:rgba(255,255,255,.55); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .mx-plus{ color:#DCD0C2; font-size:15px; font-weight:400; }
+  input, textarea{ outline:none; font-family:inherit; }
+  ::placeholder{ color:#C6B9A9; }
+  .toast{ position:absolute; left:50%; bottom:100px; transform:translateX(-50%); background:#3a332c; color:#fff; font-size:13px; font-weight:600; padding:11px 18px; border-radius:999px; z-index:60; box-shadow:0 8px 20px rgba(0,0,0,.25); }
+  .modal-backdrop{ position:absolute; inset:0; background:rgba(30,24,18,.45); z-index:50; display:flex; align-items:flex-end; }
+  .modal-sheet{ background:#FFFDFB; width:100%; border-radius:24px 24px 0 0; padding:22px 22px calc(env(safe-area-inset-bottom,0px)+22px); max-height:82%; overflow-y:auto; }
+  .crisis-card{ background:#FDEDEA; border:1px solid #F6C9BE; border-radius:18px; padding:16px; }
+</style>
+</head>
+<body>
+<div id="stage"><div class="phone" id="phone"></div></div>
+<script>
+/* =========================================================
+   시아언니 웹 프로토타입 — 단일 파일 데모
+   * 실제 백엔드(Supabase) / Claude API 연동 전, 목업 데이터로 핵심 플로우를 시연합니다.
+   * AI 연동 지점: getSiaReply() 함수 상단 CONFIG 참고
+   ========================================================= */
+
+const CONFIG = {
+  USE_MOCK_AI: true, // Claude API 키 연결 시 false로 전환하고 아래 callClaudeAPI()를 백엔드 프록시로 구현
+  ANTHROPIC_API_KEY: '', // 주의: 프런트엔드에 키를 직접 넣지 말 것. Supabase Edge Function 등 서버리스 프록시 경유 권장
+  CRISIS_KEYWORDS: ['죽고싶','자살','자해','사라지고싶','살기싫','끝내고싶','죽어버리','목숨을'],
+  CRISIS_RESOURCES: [
+    { name:'자살예방상담전화', number:'1393' },
+    { name:'정신건강 위기상담전화', number:'1577-0199' },
+    { name:'보건복지상담센터', number:'129' }
+  ]
+};
+
+const STAGES = ['진단','검사','수술','항암','방사선','회복기','정기검사','유지치료'];
+
+const STAGE_COLORS = {
+  '진단':      { bg:'#FDE8E5', border:'#F3B9B0', fg:'#C2503A' },
+  '검사':      { bg:'#FDF1DC', border:'#F0D19B', fg:'#B8813A' },
+  '수술':      { bg:'#F5E9FB', border:'#DFC1F0', fg:'#8A5BAF' },
+  '항암':      { bg:'#FFF1E8', border:'#F3C9A6', fg:'#C56A2E' },
+  '방사선':    { bg:'#E7F6F3', border:'#B9E4DA', fg:'#2F8F79' },
+  '회복기':    { bg:'#EAF6EC', border:'#BFE3C6', fg:'#3F8C54' },
+  '정기검사':  { bg:'#E9F1FB', border:'#BFD6F0', fg:'#3A6EA8' },
+  '유지치료':  { bg:'#F3EFE9', border:'#D8CBB8', fg:'#7A6C5D' }
+};
+const MX_TIME_W = 58;   // 좌측 시간 라벨 열 폭
+const MX_STAGE_W = 46;  // 단계별 열 폭 (8개 고정)
+const MX_ROW_H = { month:52, week:52, day:56 }; // 확대 단계별 행 높이
+
+let DB = {
+  user: { phone: '010-0000-0000' }, // 온보딩 스킵 상태의 기본 목업 유저 (인증 시스템 자체는 아래 renderOnboarding()에 유지됨)
+  records: [
+    { id:'r1', stage:'항암', date:'2025-03-02', text:'항암 1차 하고 나니까 몸이 계속 무겁고, 아무 것도 하기 싫어.', tags:['피로','무기력'], mood:'지침' },
+    { id:'r2', stage:'항암', date:'2025-03-20', text:'항암 2차 이후로 입맛이 확 줄었어. 그래도 조금씩 챙겨 먹으려고 해.', tags:['입맛저하'], mood:'담담함' },
+    { id:'r3', stage:'항암', date:'2025-05-12', text:'항암 3차 하고 나니까 입맛도 없고 잠도 잘 안 와. 음식 냄새만 맡아도 속이 울렁거려서 억지로 조금씩 먹고 있어.', tags:['입맛저하','수면불편','피로'], mood:'예민함' },
+    { id:'r4', stage:'회복기', date:'2025-08-04', text:'치료가 끝나면 다 괜찮아질 줄 알았는데, 마음은 아직 회복 중이었다. 그래도 오늘 하루는 지나왔다.', tags:['불안','외로움'], mood:'불안' },
+    { id:'r5', stage:'정기검사', date:'2025-09-15', text:'내일 검사인데 자꾸 나쁜 생각이 들고 잠이 잘 안 와.', tags:['불안','수면불편'], mood:'불안' }
+  ],
+  similarExperiences: {
+    '항암': ['피로, 입맛 변화, 수면 문제를 자주 기록했어요.', '저도 3차 이후에 입맛이 확 떨어졌어요. 차갑고 담백한 걸로 조금씩 먹으니 괜찮아졌어요.'],
+    '정기검사': ['비슷한 시기의 사람들도 이때 마음이 많이 흔들렸다고 남겼어요.'],
+    '회복기': ['치료가 끝난 뒤에도 마음은 천천히 회복된다고 느낀 사람이 많았어요.']
+  },
+  sentLetters: [
+    { id:'l1', date:'2025-08-05', text:'치료가 끝나면 다 괜찮아질 줄 알았는데, 마음은 아직 회복 중이었다. 그래도 오늘 하루는 지나왔다.', tags:['회복기','불안','외로움'], status:'replied', reply:'저도 치료 끝나고 나서 더 불안했던 날이 많았어요. 당신만 그런 게 아니에요. 오늘도 잘 해내고 있어요.' }
+  ],
+  inboxLetters: [
+    { id:'in1', date:'2025-07-28', text:'검사 결과 기다리는 이 며칠이 제일 무서운 것 같아요. 아무렇지 않은 척 하는 게 더 힘들어요.', tags:['불안','정기검사'], replied:false },
+    { id:'in2', date:'2025-07-21', text:'가발을 처음 벗던 날, 거울 속 내가 낯설어서 한참을 울었어요. 그래도 지금은 조금 익숙해졌어요.', tags:['항암','자존감'], replied:false }
+  ],
+  chat: []
+};
+
+let STATE = {
+  onboard: 'done', // intro -> phone -> otp -> done (인증 시스템 코드는 유지, 기본 진입은 랜딩 화면으로 스킵)
+  phoneInput: '',
+  tab: 'home', // home, map, letters, records
+  matrix: { level:'month', monthKey:null, weekKey:null }, // 나의 회복지도: 월 → 주 → 일 순으로 확대(액자식), 세로 스크롤로 탐색
+  cellModal: null, // { stage, dateKey } — 일(day) 레벨에서 칸을 누르면 기록 작성/조회 모달
+  lettersView: { tab:'sent', replyTarget:null },
+  toast: null,
+  showSiaTime: false,
+  showReplyView: null,
+  suggestLetterFrom: null,
+  chat_lastCrisis: false,
+};
+
+const SIA_QUESTIONS = ['오늘 어때?','몸은 좀 어때?','오늘 제일 힘들었던 건 뭐였어?','그래도 괜찮았던 순간이 있었어?'];
+let qIndex = 0;
+
+function uid(p){ return p + Math.random().toString(36).slice(2,8); }
+function todayStr(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+/* ---------------- AI (mock, swap-in point) ---------------- */
+function getSiaReply(userText){
+  const hit = CONFIG.CRISIS_KEYWORDS.find(k => userText.includes(k));
+  if (hit) {
+    return { type:'crisis', text:'많이 힘든 마음이 든 것 같아요. 지금 느끼는 마음, 혼자 견디지 않았으면 해요. 아래 번호로 지금 바로 이야기 나눌 수 있어요.' };
+  }
+  if (!CONFIG.USE_MOCK_AI) {
+    // TODO: 백엔드 프록시(Supabase Edge Function 등)를 통해 Claude API 호출
+    // return callClaudeAPI(userText, DB.chat);
+  }
+  const moodWords = {'힘들':'많이 힘들었겠다. 잘 버텨왔어.','불안':'불안한 마음, 자연스러운 거야. 지금 여기 있는 것만으로도 잘하고 있어.','피곤':'몸이 지쳐 있구나. 오늘은 무리하지 말자.','외로':'혼자라는 느낌, 힘들지. 여기 내가 듣고 있어.'};
+  const found = Object.keys(moodWords).find(k=>userText.includes(k));
+  if (found) return { type:'normal', text: moodWords[found] };
+  const generic = ['그렇게 느꼈구나, 말해줘서 고마워.','오늘 하루도 잘 지나왔어. 애썼어.','그 마음 충분히 그럴 수 있어.','조금씩이라도 괜찮아. 천천히 가자.'];
+  return { type:'normal', text: generic[Math.floor(Math.random()*generic.length)] };
+}
+
+/* ---------------- Render root ---------------- */
+function render(){
+  const el = document.getElementById('phone');
+  if (STATE.onboard !== 'done') { el.innerHTML = renderOnboarding(); bindOnboarding(); return; }
+  el.innerHTML = `
+    <div class="statusbar"><span>9:41</span>
+      <div class="dot-row"><span style="height:6px"></span><span style="height:8px"></span><span style="height:10px"></span><span style="height:12px"></span></div>
+    </div>
+    <div class="screen" id="screen">${renderTab()}</div>
+    ${renderNav()}
+    ${STATE.toast ? `<div class="toast fadein">${STATE.toast}</div>` : ''}
+    ${renderModals()}
+  `;
+  bindTab();
+}
+
+function renderNav(){
+  const items = [
+    {id:'home', label:'시아언니', icon:'💬'},
+    {id:'map', label:'회복지도', icon:'🗺️'},
+    {id:'letters', label:'편지함', icon:'✉️'},
+    {id:'records', label:'내 기록', icon:'📔'}
+  ];
+  return `<div class="navbar">${items.map(it=>`
+    <div class="navitem ${STATE.tab===it.id?'active':''}" data-nav="${it.id}">
+      <span style="font-size:18px">${it.icon}</span><span>${it.label}</span>
+    </div>`).join('')}</div>`;
+}
+
+function toast(msg){ STATE.toast = msg; render(); setTimeout(()=>{ STATE.toast=null; render(); }, 1800); }
+
+/* ---------------- Onboarding (기본 진입 시 스킵되지만 로직은 유지) ---------------- */
+function renderOnboarding(){
+  if (STATE.onboard === 'intro') return `
+    <div class="screen fadein" style="justify-content:space-between; padding:56px 30px 40px; text-align:center;">
+      <div></div>
+      <div>
+        <div style="font-size:44px; margin-bottom:18px;">🫂</div>
+        <div style="font-size:22px; font-weight:800; color:#3a332c; margin-bottom:10px;">사브작 아카이브<br/>'시아언니'</div>
+        <div style="font-size:14px; color:#8A7B6A; line-height:1.7;">암 치료 전후의 사람들이 자신의 상태·감정·경험을 기록하고,<br/>그 기록을 바탕으로 시아언니가<br/>위로와 생활 회복 가이드를 건네는<br/>개인 회복 기록 서비스</div>
+      </div>
+      <button data-go="phone" style="background:#E8734A; color:#fff; font-weight:700; padding:15px; border-radius:16px; border:none; font-size:15px;">시작하기</button>
+    </div>`;
+  if (STATE.onboard === 'phone') return `
+    <div class="screen fadein" style="padding:56px 26px; justify-content:flex-start;">
+      <div style="font-size:19px; font-weight:800; color:#3a332c; margin-bottom:8px;">전화번호로 간편하게</div>
+      <div style="font-size:13.5px; color:#8A7B6A; margin-bottom:26px;">번호 인증만으로 바로 시작할 수 있어요</div>
+      <input id="phoneField" type="tel" placeholder="010-0000-0000" style="border:1px solid #ECE2D6; border-radius:14px; padding:14px 16px; font-size:15px; margin-bottom:14px;" />
+      <button data-go="otp" style="background:#E8734A; color:#fff; font-weight:700; padding:15px; border-radius:16px; border:none; font-size:15px;">인증번호 받기</button>
+    </div>`;
+  if (STATE.onboard === 'otp') return `
+    <div class="screen fadein" style="padding:56px 26px;">
+      <div style="font-size:19px; font-weight:800; color:#3a332c; margin-bottom:8px;">인증번호를 입력해주세요</div>
+      <div style="font-size:13.5px; color:#8A7B6A; margin-bottom:26px;">${STATE.phoneInput||'010-0000-0000'} 로 발송된 6자리 번호 (프로토타입: 아무 숫자나 입력)</div>
+      <input id="otpField" type="tel" maxlength="6" placeholder="123456" style="border:1px solid #ECE2D6; border-radius:14px; padding:14px 16px; font-size:15px; margin-bottom:14px; letter-spacing:6px;" />
+      <button data-go="done" style="background:#E8734A; color:#fff; font-weight:700; padding:15px; border-radius:16px; border:none; font-size:15px;">확인하고 시작하기</button>
+    </div>`;
+}
+function bindOnboarding(){
+  const el = document.getElementById('phone');
+  el.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click', ()=>{
+    const g = b.getAttribute('data-go');
+    if (g==='phone') { STATE.onboard='phone'; render(); }
+    else if (g==='otp') {
+      const v = document.getElementById('phoneField')?.value || '';
+      STATE.phoneInput = v; STATE.onboard='otp'; render();
+    } else if (g==='done') {
+      DB.user = { phone: STATE.phoneInput || '010-0000-0000' };
+      STATE.onboard='done'; render();
+    }
+  }));
+}
+
+/* ---------------- Tabs router ---------------- */
+function renderTab(){
+  if (STATE.tab==='home') return renderHome();
+  if (STATE.tab==='map') return renderMap();
+  if (STATE.tab==='letters') return renderLetters();
+  if (STATE.tab==='records') return renderRecords();
+}
+function bindTab(){
+  document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click', ()=>{
+    STATE.tab = b.getAttribute('data-nav'); render();
+  }));
+  if (STATE.tab==='home') bindHome();
+  if (STATE.tab==='records') bindRecords();
+  if (STATE.tab==='letters') bindLetters();
+  // map: 매트릭스 클릭(칸/시간라벨/뒤로가기)은 전역 delegate에서 처리
+}
+
+/* ---------------- HOME (시아언니 채팅) ---------------- */
+function renderHome(){
+  const hasChat = DB.chat.length>0;
+  return `
+  <div class="fadein" style="display:flex; flex-direction:column; flex:1; padding:18px 20px 10px;">
+    ${!hasChat ? `
+      <div style="margin-top:10px; margin-bottom:20px;">
+        <div style="font-size:22px; font-weight:800; color:#3a332c; line-height:1.4;">오늘은<br/>길게 말하지 않아도<br/>괜찮아.</div>
+      </div>` : ''}
+    <div id="chatlog" style="flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; padding-bottom:10px;">
+      ${DB.chat.map(m=> m.role==='sia'
+        ? `<div class="bubble-sia fadein">${m.text}</div>`
+        : `<div class="bubble-me fadein">${m.text}</div>`).join('')}
+      ${STATE.suggestLetterFrom ? `
+        <div class="card fadein" style="padding:14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:13.5px; color:#4A3F35;">방금 한 말 중에, 조용히 닿을 만한 문장이 있어. 편지로 보내볼까?</div>
+          <div style="background:#F5EFE6; border-radius:12px; padding:10px 12px; font-size:13px; color:#7A6C5D;">"${STATE.suggestLetterFrom}"</div>
+          <div style="display:flex; gap:8px;">
+            <button data-letter-yes style="flex:1; background:#E8734A; color:#fff; border:none; border-radius:10px; padding:10px; font-size:13px; font-weight:700;">편지로 보내기</button>
+            <button data-letter-no style="flex:1; background:#F5EFE6; color:#7A6C5D; border:none; border-radius:10px; padding:10px; font-size:13px; font-weight:700;">나만 간직하기</button>
+          </div>
+        </div>` : ''}
+      ${STATE.chat_lastCrisis ? `
+        <div class="crisis-card fadein">
+          <div style="font-weight:700; color:#B8462F; font-size:13.5px; margin-bottom:8px;">지금 혼자가 아니에요</div>
+          ${CONFIG.CRISIS_RESOURCES.map(r=>`<div style="font-size:13px; color:#7A6C5D; margin-bottom:2px;">${r.name} · <b>${r.number}</b></div>`).join('')}
+        </div>` : ''}
+    </div>
+    <div class="hscroll" style="display:flex; gap:8px; padding:8px 0;">
+      ${['오늘의 감정','몸 상태','치료 경험','검사'].map(c=>`<div class="chip" data-chip="${c}">${c}</div>`).join('')}
+    </div>
+    <div style="display:flex; gap:8px; align-items:center; padding-top:4px;">
+      <input id="chatInput" type="text" placeholder="지금 마음이나 몸 상태를 편하게 말해보세요" style="flex:1; border:1px solid #ECE2D6; border-radius:999px; padding:12px 16px; font-size:13.5px;" />
+      <button id="chatSend" style="background:#E8734A; width:42px; height:42px; border-radius:50%; border:none; color:#fff; font-size:16px;">↑</button>
+    </div>
+    ${DB.records.length>0 ? `<div data-open-siatime style="text-align:center; margin-top:10px; font-size:12.5px; color:#B7AA9B; font-weight:700;">오늘의 참견타임 보기 ›</div>` : ''}
+  </div>`;
+}
+function bindHome(){
+  const send = ()=>{
+    const inp = document.getElementById('chatInput');
+    const text = inp.value.trim();
+    if (!text) return;
+    DB.chat.push({ role:'me', text });
+    const q = SIA_QUESTIONS[qIndex % SIA_QUESTIONS.length];
+    const reply = getSiaReply(text);
+    STATE.chat_lastCrisis = reply.type === 'crisis';
+    if (reply.type === 'crisis') {
+      DB.chat.push({ role:'sia', text: reply.text });
+    } else {
+      DB.chat.push({ role:'sia', text: reply.text + ' ' + q });
+      qIndex++;
+      DB.records.unshift({ id:uid('r'), stage: STAGES[Math.floor(Math.random()*STAGES.length)], date: todayStr(), text, tags:[], mood:'기록' });
+      if (DB.chat.filter(m=>m.role==='me').length % 2 === 0) STATE.suggestLetterFrom = text;
+    }
+    render();
+    setTimeout(()=>{ const log=document.getElementById('chatlog'); if(log) log.scrollTop = log.scrollHeight; }, 30);
+  };
+  document.getElementById('chatSend')?.addEventListener('click', send);
+  document.getElementById('chatInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter') send(); });
+  document.querySelectorAll('[data-chip]').forEach(c=>c.addEventListener('click', ()=>{
+    document.getElementById('chatInput').value = c.getAttribute('data-chip') + ' 관련해서 얘기하고 싶어';
+  }));
+  document.querySelector('[data-letter-yes]')?.addEventListener('click', ()=>{
+    DB.sentLetters.unshift({ id:uid('l'), date:todayStr(), text:STATE.suggestLetterFrom, tags:['공감대기'], status:'pending', reply:null });
+    STATE.suggestLetterFrom = null;
+    toast('편지가 익명으로 전해졌어요');
+  });
+  document.querySelector('[data-letter-no]')?.addEventListener('click', ()=>{ STATE.suggestLetterFrom = null; render(); });
+  document.querySelector('[data-open-siatime]')?.addEventListener('click', ()=>{ STATE.showSiaTime = true; render(); });
+}
+
+/* ---------------- 나의 회복지도: 매트릭스 (가로축 = 치료 8단계 고정, 세로축 = 시간·세로 스크롤) ---------------- */
+function stageCount(stage){ return DB.records.filter(r=>r.stage===stage).length; }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function toDateStr(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+function monthKeyOf(dateStr){ return dateStr.slice(0,7); }
+function monthLabelFull(key){ return key.slice(0,4) + '년 ' + parseInt(key.slice(5,7),10) + '월'; }
+
+// 시간 행: 기록이 있는 가장 이른 달 ~ 오늘이 속한 달(둘 중 더 늦은 쪽)까지, 최신이 위로 오도록 내림차순
+function buildMonthRows(){
+  const todayKey = monthKeyOf(todayStr());
+  const keys = DB.records.length ? DB.records.map(r=>monthKeyOf(r.date)) : [todayKey];
+  let minKey = keys.reduce((a,b)=> a<b?a:b);
+  let maxKey = keys.reduce((a,b)=> a>b?a:b);
+  if (todayKey > maxKey) maxKey = todayKey;
+  const rows = [];
+  let y = parseInt(minKey.slice(0,4),10), m = parseInt(minKey.slice(5,7),10);
+  const my = parseInt(maxKey.slice(0,4),10), mm = parseInt(maxKey.slice(5,7),10);
+  while (y < my || (y===my && m<=mm)) {
+    rows.push({ key: y+'-'+pad2(m), label: y+'.'+pad2(m) });
+    m++; if (m>12){ m=1; y++; }
+  }
+  return rows.reverse(); // 최신 달이 맨 위
+}
+function buildWeekRows(monthKey){
+  const year = parseInt(monthKey.slice(0,4),10), month = parseInt(monthKey.slice(5,7),10);
+  const firstDay = new Date(year, month-1, 1);
+  const lastDay = new Date(year, month, 0);
+  const rows = [];
+  const cursor = new Date(firstDay);
+  cursor.setDate(cursor.getDate() - cursor.getDay());
+  let idx = 1;
+  while (cursor <= lastDay) {
+    const rawStart = new Date(cursor);
+    const rawEnd = new Date(cursor); rawEnd.setDate(rawEnd.getDate()+6);
+    const startDate = rawStart < firstDay ? firstDay : rawStart;
+    const endDate = rawEnd > lastDay ? lastDay : rawEnd;
+    rows.push({ key: monthKey+'-W'+idx, label: idx+'주', rawStart, rawEnd, startDate, endDate });
+    cursor.setDate(cursor.getDate()+7);
+    idx++;
+  }
+  return rows.reverse(); // 최신 주가 맨 위
+}
+function buildDayRows(weekRow){
+  const weekdayNames = ['일','월','화','수','목','금','토'];
+  const rows = [];
+  for (let i=0;i<7;i++){
+    const d = new Date(weekRow.rawStart);
+    d.setDate(d.getDate()+i);
+    rows.push({ key: toDateStr(d), label: (d.getMonth()+1)+'/'+d.getDate(), weekday: weekdayNames[d.getDay()] });
+  }
+  return rows.reverse(); // 최신 날짜가 맨 위
+}
+function currentMatrixRows(){
+  if (STATE.matrix.level==='month') return buildMonthRows();
+  if (STATE.matrix.level==='week') return buildWeekRows(STATE.matrix.monthKey);
+  const weekRows = buildWeekRows(STATE.matrix.monthKey);
+  const weekRow = weekRows.find(r=>r.key===STATE.matrix.weekKey) || weekRows[0];
+  return buildDayRows(weekRow);
+}
+function cellRecords(stage, level, row){
+  if (level==='month') return DB.records.filter(r=>r.stage===stage && monthKeyOf(r.date)===row.key);
+  if (level==='week') return DB.records.filter(r=>r.stage===stage && r.date>=toDateStr(row.startDate) && r.date<=toDateStr(row.endDate));
+  return DB.records.filter(r=>r.stage===stage && r.date===row.key);
+}
+// 확대(드릴다운): key를 알고 있으면 그대로, 모르면(핀치 제스처) 손가락 위치의 행으로 추정
+function drillIn(explicitKey, clientY){
+  if (STATE.matrix.level==='day') return;
+  const rows = currentMatrixRows();
+  let key = explicitKey;
+  if (!key) {
+    const scrollEl = document.getElementById('mxScroll');
+    const rowH = MX_ROW_H[STATE.matrix.level];
+    key = rows[0].key; // 기본값: 맨 위(가장 최신) 행
+    if (scrollEl && clientY != null) {
+      const rect = scrollEl.getBoundingClientRect();
+      const headerH = 40;
+      const localY = clientY - rect.top + scrollEl.scrollTop - headerH;
+      const idx = clamp(Math.floor(localY / rowH), 0, rows.length-1);
+      key = rows[idx].key;
+    }
+  }
+  if (STATE.matrix.level==='month') { STATE.matrix.monthKey = key; STATE.matrix.weekKey = null; STATE.matrix.level = 'week'; }
+  else if (STATE.matrix.level==='week') { STATE.matrix.weekKey = key; STATE.matrix.level = 'day'; }
+  render();
+}
+function drillOut(){
+  if (STATE.matrix.level==='week') STATE.matrix.level = 'month';
+  else if (STATE.matrix.level==='day') STATE.matrix.level = 'week';
+  render();
+}
+function renderMatrix(){
+  const monthRows = buildMonthRows();
+  if (!STATE.matrix.monthKey || !monthRows.find(r=>r.key===STATE.matrix.monthKey)) STATE.matrix.monthKey = monthRows[0].key;
+  const level = STATE.matrix.level;
+  const rows = currentMatrixRows();
+  const rowH = MX_ROW_H[level];
+  const gridWidth = MX_TIME_W + STAGES.length * MX_STAGE_W;
+  let breadcrumb = '전체 기간';
+  if (level==='week') breadcrumb = monthLabelFull(STATE.matrix.monthKey);
+  if (level==='day') {
+    const weekRows = buildWeekRows(STATE.matrix.monthKey);
+    const weekRow = weekRows.find(r=>r.key===STATE.matrix.weekKey) || weekRows[0];
+    breadcrumb = monthLabelFull(STATE.matrix.monthKey) + ' · ' + weekRow.label;
+  }
+
+  return `
+  <div style="flex-shrink:0; padding:0 20px 8px; display:flex; align-items:center; gap:8px;">
+    ${level!=='month' ? `<div data-mx-back style="font-size:16px; color:#8A7B6A; padding:2px 6px 2px 0;">←</div>` : ''}
+    <div style="font-size:13px; font-weight:700; color:#7A6C5D;">${breadcrumb}</div>
+    <div style="margin-left:auto; font-size:10.5px; color:#C6B9A9;">${level==='day' ? '칸을 눌러 기록해요' : '눌러서 확대'}</div>
+  </div>
+  <div id="mxScroll" style="flex:1; min-height:0; position:relative;">
+    <div style="width:${gridWidth}px;">
+      <div style="display:flex; position:sticky; top:0; z-index:3; background:#FFF8F2; width:${gridWidth}px;">
+        <div class="mx-corner" style="width:${MX_TIME_W}px; height:40px;"></div>
+        ${STAGES.map(stage=>{
+          const sc = STAGE_COLORS[stage];
+          return `<div class="mx-stagehead" style="width:${MX_STAGE_W}px; height:40px; color:${sc.fg}; background:${sc.bg};">${stage}</div>`;
+        }).join('')}
+      </div>
+      ${rows.map(row=>`
+        <div style="display:flex; width:${gridWidth}px;">
+          <div class="mx-timelabel" data-mx-timehead="${row.key}" style="width:${MX_TIME_W}px; height:${rowH}px;">
+            <div>
+              <div>${row.label}</div>
+              ${row.weekday ? `<div class="wd">${row.weekday}</div>` : ''}
+            </div>
+          </div>
+          ${STAGES.map(stage=>{
+            const sc = STAGE_COLORS[stage];
+            const recs = cellRecords(stage, level, row);
+            const has = recs.length>0;
+            const preview = has ? (level==='day' ? recs[recs.length-1].text.slice(0,7) : recs.length+'건') : '';
+            return `<div class="mx-cell" data-mx-cell data-mx-stage="${stage}" data-mx-time="${row.key}" style="width:${MX_STAGE_W}px; height:${rowH}px; ${has?`background:${sc.bg}; color:${sc.fg};`:''}">
+              ${has ? `<span class="mx-badge">${preview}</span>` : (level==='day' ? '<span class="mx-plus">+</span>' : '')}
+            </div>`;
+          }).join('')}
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+function renderMap(){
+  return `
+  <div class="fadein" style="display:flex; flex-direction:column; flex:1; min-height:0; padding-top:20px;">
+    <div style="padding:0 20px; flex-shrink:0;">
+      <div style="font-size:18px; font-weight:800; color:#3a332c; margin-bottom:2px;">나의 회복지도</div>
+      <div style="font-size:12.5px; color:#B7AA9B; margin-bottom:10px;">가로: 치료 단계 · 세로: 시간 매트릭스 · 총 ${DB.records.length}건</div>
+    </div>
+    ${renderMatrix()}
+  </div>`;
+}
+
+/* ---------------- 사브작 편지함 ---------------- */
+function renderLetters(){
+  const v = STATE.lettersView;
+  return `
+  <div class="fadein" style="padding:20px;">
+    <div style="font-size:18px; font-weight:800; color:#3a332c; margin-bottom:14px;">사브작 편지함</div>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <div class="stagepill ${v.tab==='sent'?'on':''}" data-lettertab="sent">보낸 편지</div>
+      <div class="stagepill ${v.tab==='inbox'?'on':''}" data-lettertab="inbox">받은 편지</div>
+    </div>
+    ${v.tab==='sent' ? `
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        ${DB.sentLetters.length===0 ? `<div style="font-size:12.5px; color:#C6B9A9; text-align:center; padding:30px 0;">아직 보낸 편지가 없어요.<br/>시아언니와의 대화에서 편지를 제안받을 수 있어요.</div>` : DB.sentLetters.map(l=>`
+        <div class="card" data-sent="${l.id}" style="padding:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="font-size:12px; color:#B7AA9B; font-weight:700;">${l.date}</span>
+            <span style="font-size:11.5px; font-weight:700; color:${l.status==='replied'?'#E8734A':'#B7AA9B'};">${l.status==='replied'?'답장 도착':'답장 대기중'}</span>
+          </div>
+          <div style="font-size:13px; color:#4A3F35; line-height:1.5;">${l.text}</div>
+        </div>`).join('')}
+      </div>` : `
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        ${DB.inboxLetters.map(l=>`
+        <div class="card" style="padding:14px;">
+          <div style="font-size:12px; color:#B7AA9B; font-weight:700; margin-bottom:6px;">${l.date} · 익명</div>
+          <div style="font-size:13px; color:#4A3F35; line-height:1.5; margin-bottom:10px;">${l.text}</div>
+          <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">${l.tags.map(t=>`<span class="chip">${t}</span>`).join('')}</div>
+          ${l.replied ? `<div style="font-size:12px; color:#E8734A; font-weight:700;">✓ 답장을 보냈어요</div>` : `<button data-reply="${l.id}" style="width:100%; background:#F5EFE6; color:#7A6C5D; border:none; border-radius:10px; padding:10px; font-size:13px; font-weight:700;">답장 쓰기</button>`}
+        </div>`).join('')}
+      </div>`}
+  </div>`;
+}
+function bindLetters(){
+  document.querySelectorAll('[data-lettertab]').forEach(el=>el.addEventListener('click', ()=>{
+    STATE.lettersView.tab = el.getAttribute('data-lettertab'); render();
+  }));
+  document.querySelectorAll('[data-sent]').forEach(el=>el.addEventListener('click', ()=>{
+    const l = DB.sentLetters.find(x=>x.id===el.getAttribute('data-sent'));
+    if (l && l.status==='replied') { STATE.showReplyView = l; render(); }
+    else if (l) { toast('아직 답장을 기다리고 있어요'); }
+  }));
+  document.querySelectorAll('[data-reply]').forEach(el=>el.addEventListener('click', ()=>{
+    STATE.lettersView.replyTarget = el.getAttribute('data-reply'); render();
+  }));
+}
+
+/* ---------------- 내 기록 ---------------- */
+function renderRecords(){
+  return `
+  <div class="fadein" style="padding:20px;">
+    <div style="font-size:18px; font-weight:800; color:#3a332c; margin-bottom:14px;">내 기록</div>
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      ${DB.records.length===0 ? `<div style="font-size:12.5px; color:#C6B9A9; text-align:center; padding:30px 0;">아직 기록이 없어요.</div>` : DB.records.map(r=>`
+      <div class="card" style="padding:14px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span style="font-size:12px; color:#B7AA9B; font-weight:700;">${r.date} · ${r.stage}</span></div>
+        <div style="font-size:13px; color:#4A3F35; line-height:1.5;">${r.text}</div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+function bindRecords(){}
+
+/* ---------------- Modals: 참견타임 / 답장쓰기 / 답장확인 / 매트릭스 칸 기록 ---------------- */
+function renderModals(){
+  let html = '';
+  if (STATE.showSiaTime) {
+    html += `
+    <div class="modal-backdrop" data-close-modal>
+      <div class="modal-sheet fadein">
+        <div style="width:36px; height:4px; background:#ECE2D6; border-radius:2px; margin:0 auto 16px;"></div>
+        <div style="font-size:16px; font-weight:800; color:#3a332c; margin-bottom:4px;">시아언니의 참견 타임</div>
+        <div style="font-size:12.5px; color:#B7AA9B; margin-bottom:16px;">내 기록을 읽고 오늘의 상태를 정리했어요</div>
+        <div class="card" style="padding:14px; margin-bottom:10px;"><div style="font-size:12px; font-weight:700; color:#B7AA9B; margin-bottom:6px;">상태 요약</div><div style="font-size:13px; color:#4A3F35; line-height:1.6;">검사를 앞두고 잠이 줄고 불안이 커지는 패턴이 보여요. 비슷한 시기의 사람들도 이때 마음이 많이 흔들렸다고 남겼어요.</div></div>
+        <div class="card" style="padding:14px; margin-bottom:10px;"><div style="font-size:12px; font-weight:700; color:#B7AA9B; margin-bottom:6px;">작은 실천</div><div style="font-size:13px; color:#4A3F35; line-height:1.6;">오늘은 결과를 예측하려 하기보다, 내일 병원에 물어볼 질문 3개만 정리해두는 건 어때요.</div></div>
+        <div class="card" style="padding:14px; margin-bottom:16px; background:#FDEDEA;"><div style="font-size:12px; font-weight:700; color:#B8462F; margin-bottom:6px;">의료진 문의 권유</div><div style="font-size:13px; color:#7A4B3E; line-height:1.6;">잠이 계속 안 오거나 불안이 너무 커지면 담당 의료진에게 꼭 이야기해보세요.</div></div>
+        <div style="font-size:11px; color:#C6B9A9; line-height:1.5; margin-bottom:14px;">※ 시아언니의 참견타임은 의료적 진단이나 치료 판단을 대신하지 않고, 생활 회복과 질문 정리를 돕습니다.</div>
+        <button data-close-modal style="width:100%; background:#E8734A; color:#fff; border:none; border-radius:14px; padding:13px; font-weight:700; font-size:14px;">닫기</button>
+      </div>
+    </div>`;
+  }
+  if (STATE.lettersView.replyTarget) {
+    const l = DB.inboxLetters.find(x=>x.id===STATE.lettersView.replyTarget);
+    html += `
+    <div class="modal-backdrop" data-close-reply>
+      <div class="modal-sheet fadein">
+        <div style="width:36px; height:4px; background:#ECE2D6; border-radius:2px; margin:0 auto 16px;"></div>
+        <div style="font-size:15px; font-weight:800; color:#3a332c; margin-bottom:10px;">답장 쓰기</div>
+        <div class="card" style="padding:12px; margin-bottom:12px; background:#F5EFE6;"><div style="font-size:12.5px; color:#7A6C5D; line-height:1.5;">${l?l.text:''}</div></div>
+        <textarea id="replyText" maxlength="100" placeholder="100자 이내로 짧은 답장을 남겨보세요" style="width:100%; height:90px; border:1px solid #ECE2D6; border-radius:12px; padding:12px; font-size:13.5px; resize:none; box-sizing:border-box;"></textarea>
+        <div style="text-align:right; font-size:11px; color:#C6B9A9; margin:6px 0 14px;"><span id="replyCount">0</span>/100</div>
+        <button id="sendReplyBtn" style="width:100%; background:#E8734A; color:#fff; border:none; border-radius:14px; padding:13px; font-weight:700; font-size:14px;">익명으로 답장 보내기</button>
+      </div>
+    </div>`;
+  }
+  if (STATE.showReplyView) {
+    const l = STATE.showReplyView;
+    html += `
+    <div class="modal-backdrop" data-close-view>
+      <div class="modal-sheet fadein">
+        <div style="width:36px; height:4px; background:#ECE2D6; border-radius:2px; margin:0 auto 16px;"></div>
+        <div style="font-size:15px; font-weight:800; color:#3a332c; margin-bottom:12px;">당신의 문장에 답장이 도착했어요</div>
+        <div class="card" style="padding:12px; margin-bottom:10px; background:#F5EFE6;"><div style="font-size:12px; color:#B7AA9B; font-weight:700; margin-bottom:4px;">보낸 편지</div><div style="font-size:13px; color:#7A6C5D; line-height:1.5;">${l.text}</div></div>
+        <div class="card" style="padding:12px; margin-bottom:16px;"><div style="font-size:12px; color:#E8734A; font-weight:700; margin-bottom:4px;">익명의 답장</div><div style="font-size:13.5px; color:#4A3F35; line-height:1.6;">${l.reply}</div></div>
+        <button data-close-view style="width:100%; background:#E8734A; color:#fff; border:none; border-radius:14px; padding:13px; font-weight:700; font-size:14px;">닫기</button>
+      </div>
+    </div>`;
+  }
+  if (STATE.cellModal) {
+    const { stage, dateKey } = STATE.cellModal;
+    const d = new Date(dateKey+'T00:00:00');
+    const dateLabel = `${d.getMonth()+1}월 ${d.getDate()}일`;
+    const recs = DB.records.filter(r=>r.stage===stage && r.date===dateKey).slice().reverse();
+    const sc = STAGE_COLORS[stage];
+    html += `
+    <div class="modal-backdrop" data-close-cell>
+      <div class="modal-sheet fadein">
+        <div style="width:36px; height:4px; background:#ECE2D6; border-radius:2px; margin:0 auto 16px;"></div>
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+          <span style="font-size:11px; font-weight:800; padding:3px 9px; border-radius:999px; background:${sc.bg}; color:${sc.fg};">${stage}</span>
+          <span style="font-size:15px; font-weight:800; color:#3a332c;">${dateLabel}</span>
+        </div>
+        <div style="font-size:12px; color:#B7AA9B; margin-bottom:14px;">이 칸에 남긴 기록이에요</div>
+        ${recs.length ? recs.map(r=>`<div class="card" style="padding:12px; margin-bottom:8px;"><div style="font-size:13px; color:#4A3F35; line-height:1.5;">${r.text}</div></div>`).join('') : `<div style="font-size:12.5px; color:#C6B9A9; text-align:center; padding:16px 0;">아직 이 칸엔 기록이 없어요.</div>`}
+        ${DB.similarExperiences[stage] ? `<div class="card" style="padding:12px; margin:6px 0 14px; background:#FFF8F2;"><div style="font-size:11.5px; font-weight:700; color:#3a332c; margin-bottom:4px;">🫶 비슷한 사람들의 경험</div><div style="font-size:12px; color:#7A6C5D; line-height:1.5;">${DB.similarExperiences[stage][0]}</div></div>` : ''}
+        <textarea id="cellText" placeholder="이 시점, ${stage} 단계의 기록을 남겨보세요" style="width:100%; height:80px; border:1px solid #ECE2D6; border-radius:12px; padding:12px; font-size:13.5px; resize:none; box-sizing:border-box; margin-top:6px;"></textarea>
+        <button id="cellSaveBtn" style="width:100%; background:#E8734A; color:#fff; border:none; border-radius:14px; padding:13px; font-weight:700; font-size:14px; margin-top:10px;">기록 남기기</button>
+      </div>
+    </div>`;
+  }
+  return html;
+}
+
+/* ---------------- 전역: 모달 닫기 / 답장·기록 저장 / 매트릭스 확대 클릭 위임 ---------------- */
+document.addEventListener('click', (e)=>{
+  if (e.target.matches('[data-close-modal]')) { STATE.showSiaTime=false; render(); }
+  if (e.target.matches('[data-close-reply]')) { STATE.lettersView.replyTarget=null; render(); }
+  if (e.target.matches('[data-close-view]')) { STATE.showReplyView=null; render(); }
+  if (e.target.matches('[data-close-cell]')) { STATE.cellModal=null; render(); }
+  if (e.target.id === 'sendReplyBtn') {
+    const txt = document.getElementById('replyText').value.trim();
+    const banned = ['바보','죽어','미친'];
+    if (!txt) return;
+    if (banned.some(b=>txt.includes(b))) { alert('부적절한 내용이 포함되어 전달되지 않았어요. 다시 작성해주세요.'); return; }
+    const l = DB.inboxLetters.find(x=>x.id===STATE.lettersView.replyTarget);
+    if (l) l.replied = true;
+    STATE.lettersView.replyTarget = null;
+    toast('답장이 익명으로 전달되었어요');
+  }
+  if (e.target.id === 'cellSaveBtn') {
+    const txt = document.getElementById('cellText').value.trim();
+    if (!txt || !STATE.cellModal) return;
+    const { stage, dateKey } = STATE.cellModal;
+    DB.records.push({ id:uid('r'), stage, date:dateKey, text:txt, tags:[], mood:'기록' });
+    render();
+  }
+  const backEl = e.target.closest('[data-mx-back]');
+  if (backEl) { drillOut(); return; }
+  const timeHeadEl = e.target.closest('[data-mx-timehead]');
+  if (timeHeadEl && STATE.matrix.level!=='day') { drillIn(timeHeadEl.getAttribute('data-mx-timehead'), null); return; }
+  const cellEl = e.target.closest('[data-mx-cell]');
+  if (cellEl) {
+    const stage = cellEl.getAttribute('data-mx-stage');
+    const timeKey = cellEl.getAttribute('data-mx-time');
+    if (STATE.matrix.level==='day') { STATE.cellModal = { stage, dateKey: timeKey }; render(); }
+    else { drillIn(timeKey, null); }
+  }
+});
+document.addEventListener('input', (e)=>{
+  if (e.target.id === 'replyText') { document.getElementById('replyCount').textContent = e.target.value.length; }
+});
+
+/* =========================================================
+   가로 스크롤 드래그(터치+마우스 공용, .hscroll 전용) + 매트릭스 확대/축소(두 손가락 핀치)
+   매트릭스(#mxScroll)는 이제 세로가 주 스크롤 축이라 브라우저 네이티브 스크롤(overflow:auto)에 맡기고,
+   여기서는 핀치 제스처만 별도로 감지해 드릴다운/드릴업에 사용합니다.
+   ========================================================= */
+let dragState = { active:false, el:null, startX:0, startScrollLeft:0, moved:false, pointerId:null };
+let suppressClickUntil = 0;
+let mxPointers = new Map();       // 매트릭스(#mxScroll) 위에 올라온 손가락들 (핀치 감지용)
+let mxPinchStartDist = null;
+let mxPinchTriggered = false;
+
+function findHScroll(target){ return target.closest ? target.closest('.hscroll') : null; }
+function findMatrix(target){ return target.closest ? target.closest('#mxScroll') : null; }
+
+document.addEventListener('pointerdown', (e)=>{
+  const mxEl = findMatrix(e.target);
+  if (mxEl) {
+    mxPointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (mxPointers.size === 2) {
+      const pts = [...mxPointers.values()];
+      mxPinchStartDist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
+      mxPinchTriggered = false;
+    }
+  }
+  const el = findHScroll(e.target);
+  if (!el) return;
+  if (el.scrollWidth <= el.clientWidth) return; // 스크롤할 내용이 없으면 무시
+  dragState = { active:true, el, startX:e.clientX, startScrollLeft:el.scrollLeft, moved:false, pointerId:e.pointerId };
+  el.classList.add('dragging');
+});
+document.addEventListener('pointermove', (e)=>{
+  if (mxPointers.has(e.pointerId)) {
+    mxPointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    if (mxPointers.size === 2 && mxPinchStartDist && !mxPinchTriggered) {
+      const pts = [...mxPointers.values()];
+      const dist = Math.hypot(pts[0].x-pts[1].x, pts[0].y-pts[1].y) || 1;
+      const midY = (pts[0].y + pts[1].y) / 2;
+      const ratio = dist / mxPinchStartDist;
+      if (ratio > 1.35) { mxPinchTriggered = true; drillIn(null, midY); }
+      else if (ratio < 0.7) { mxPinchTriggered = true; drillOut(); }
+    }
+  }
+  if (!dragState.active || e.pointerId !== dragState.pointerId) return;
+  const dx = e.clientX - dragState.startX;
+  if (Math.abs(dx) > 4) dragState.moved = true;
+  dragState.el.scrollLeft = dragState.startScrollLeft - dx;
+});
+function endDrag(e){
+  if (dragState.active) {
+    if (dragState.moved) suppressClickUntil = Date.now() + 60; // 드래그 직후 뒤따르는 클릭(탭 오인식)을 무시
+    dragState.el.classList.remove('dragging');
+    dragState.active = false;
+  }
+  if (e && mxPointers.has(e.pointerId)) {
+    mxPointers.delete(e.pointerId);
+    if (mxPointers.size < 2) { mxPinchStartDist = null; mxPinchTriggered = false; }
+  }
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+// 드래그로 판단되면 뒤따라오는 click 이벤트(스와이프를 탭으로 오인식하는 것)를 캡처 단계에서 차단
+document.addEventListener('click', (e)=>{
+  if (Date.now() < suppressClickUntil) { e.stopPropagation(); e.preventDefault(); }
+}, true);
+
+render();
+</script>
+</body>
+</html>

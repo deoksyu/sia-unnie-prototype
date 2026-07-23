@@ -323,7 +323,7 @@ function renderHome(){
           ${CONFIG.CRISIS_RESOURCES.map(r=>`<div style="font-size:13px; color:#7A6C5D; margin-bottom:2px;">${r.name} · <b>${r.number}</b></div>`).join('')}
         </div>` : ''}
     </div>
-    <div style="display:flex; flex-direction:column; gap:14px; ${hasChat ? '' : 'flex:1; justify-content:center;'}">
+    <div style="display:flex; flex-direction:column; gap:14px; ${hasChat ? '' : 'margin-top:6px;'}">
       <div class="sia-inputbar">
         <input id="chatInput" type="text" placeholder="지금 마음이나 몸 상태를 편하게 말해보세요" />
         <button id="chatSend" aria-label="보내기">${SIA_MIC_SVG}</button>
